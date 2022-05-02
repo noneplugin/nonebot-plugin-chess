@@ -67,7 +67,7 @@ chess_engine_path=/path/to/your/engine
 ### 示例
 
 <div align="left">
-    <img src="https://s2.loli.net/2022/04/30/RztCnIkFQqWKsUe.jpg" width="500" />
+    <img src="https://s2.loli.net/2022/05/02/1gqSQUfnLuvkpAm.png" width="500" />
 </div>
 
 
