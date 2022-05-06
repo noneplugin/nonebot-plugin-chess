@@ -219,7 +219,7 @@ async def handle_chess(matcher: Matcher, event: MessageEvent, argv: List[str]):
         else:
             game.player_white = player
 
-        msg = f"{player} 发起了游戏 国际象棋！\n发送 发送 起始坐标格式 如“e2e4”下棋，在坐标后加棋子字母表示升变，如“e7e8q”"
+        msg = f"{player} 发起了游戏 国际象棋！\n发送 起始坐标格式 如“e2e4”下棋，在坐标后加棋子字母表示升变，如“e7e8q”"
 
         if not options.battle:
             try:
