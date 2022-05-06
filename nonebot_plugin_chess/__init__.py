@@ -2,9 +2,9 @@ import re
 import chess
 import shlex
 import asyncio
+from chess import Termination
 from asyncio import TimerHandle
 from dataclasses import dataclass
-from chess import Move, Termination
 from typing import Dict, List, Tuple
 
 from nonebot.params import (
@@ -15,7 +15,6 @@ from nonebot.params import (
     EventPlainText,
     ShellCommandArgv,
 )
-from nonebot import get_driver
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.exception import ParserExit
@@ -24,10 +23,7 @@ from nonebot import on_command, on_shell_command, on_message
 from nonebot.adapters.onebot.v11 import MessageSegment as MS
 from nonebot.adapters.onebot.v11 import MessageEvent, GroupMessageEvent, Message
 
-from .config import Config
 from .game import Game, Player, AiPlayer
-
-chess_config = Config.parse_obj(get_driver().config.dict())
 
 
 __help__plugin_name__ = "chess"
@@ -54,6 +50,7 @@ group.add_argument("-e", "--stop", "--end", action="store_true", help="停止下
 group.add_argument("-v", "--show", "--view", action="store_true", help="显示棋盘")
 group.add_argument("--repent", action="store_true", help="悔棋")
 group.add_argument("--battle", action="store_true", help="对战模式")
+group.add_argument("--reload", action="store_true", help="重新加载已停止的游戏")
 parser.add_argument("--black", action="store_true", help="执黑，即后手")
 parser.add_argument("-l", "--level", type=int, default=4, help="人机等级")
 parser.add_argument("move", nargs="?", help="走法")
@@ -65,6 +62,7 @@ class Options:
     show: bool = False
     repent: bool = False
     battle: bool = False
+    reload: bool = False
     black: bool = False
     level: int = 4
     move: str = ""
@@ -133,6 +131,7 @@ shortcut("停止下棋", ["--stop"], aliases={"结束下棋", "停止游戏", "�
 shortcut("查看棋盘", ["--show"], aliases={"查看棋局", "显示棋盘", "显示棋局"}, rule=game_running)
 shortcut("悔棋", ["--repent"], rule=game_running)
 shortcut("下棋", rule=game_running)
+shortcut("重载国际象棋棋局", ["--reload"], aliases={"重载国际象棋棋盘", "恢复国际象棋棋局", "恢复国际象棋棋盘"})
 
 
 def match_move(msg: str) -> bool:
@@ -159,7 +158,7 @@ async def stop_game(matcher: Matcher, cid: str):
     timers.pop(cid, None)
     if games.get(cid, None):
         games.pop(cid)
-        await matcher.finish("国际象棋下棋超时，游戏结束")
+        await matcher.finish("国际象棋下棋超时，游戏结束，可发送“重载国际象棋棋局”继续下棋")
 
 
 def set_timeout(matcher: Matcher, cid: str, timeout: float = 600):
@@ -198,6 +197,21 @@ async def handle_chess(matcher: Matcher, event: MessageEvent, argv: List[str]):
         if not options.battle and not 1 <= options.level <= 8:
             await matcher.finish("等级应在 1~8 之间")
 
+        if options.reload:
+            try:
+                game = await Game.load_record(cid)
+            except FileNotFoundError:
+                await matcher.finish("国际象棋引擎加载失败，请检查设置")
+            if not game:
+                await matcher.finish("没有找到被中断的游戏")
+            games[cid] = game
+            await matcher.finish(
+                f"游戏发起时间：{game.start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                f"白方：{game.player_white}\n"
+                f"黑方：{game.player_black}\n"
+                f"下一手轮到：{game.player_next}" + MS.image(await game.draw()),
+            )
+
         game = Game()
         player = new_player(event)
         if options.black:
@@ -209,7 +223,7 @@ async def handle_chess(matcher: Matcher, event: MessageEvent, argv: List[str]):
 
         if not options.battle:
             try:
-                ai_player = AiPlayer(chess_config.chess_engine_path, options.level)
+                ai_player = AiPlayer(options.level)
                 await ai_player.open_engine()
 
                 if options.black:
@@ -226,11 +240,12 @@ async def handle_chess(matcher: Matcher, event: MessageEvent, argv: List[str]):
 
         games[cid] = game
         set_timeout(matcher, cid)
+        await game.save_record(cid)
         await matcher.finish(msg + MS.image(await game.draw()))
 
     if options.stop:
         games.pop(cid)
-        await matcher.finish("游戏已结束")
+        await matcher.finish("游戏已结束，可发送“重载国际象棋棋局”继续下棋")
 
     game = games[cid]
     set_timeout(matcher, cid)
@@ -342,4 +357,5 @@ async def handle_chess(matcher: Matcher, event: MessageEvent, argv: List[str]):
             message.append(msg)
             message.append(MS.image(await game.draw()))
 
+    await game.save_record(cid)
     await matcher.finish(message)
