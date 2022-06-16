@@ -243,17 +243,21 @@ async def handle_chess(matcher: Matcher, event: MessageEvent, argv: List[str]):
         await game.save_record(cid)
         await matcher.finish(msg + MS.image(await game.draw()))
 
-    if options.stop:
-        games.pop(cid)
-        await matcher.finish("游戏已结束，可发送“重载国际象棋棋局”继续下棋")
-
     game = games[cid]
     set_timeout(matcher, cid)
+    player = new_player(event)
+
+    if options.stop:
+        if (not game.player_white or game.player_white != player) and (
+            not game.player_black or game.player_black != player
+        ):
+            await matcher.finish("只有游戏参与者才能结束游戏")
+        games.pop(cid)
+        await matcher.finish("游戏已结束，可发送“重载国际象棋棋局”继续下棋")
 
     if options.show:
         await matcher.finish(MS.image(await game.draw()))
 
-    player = new_player(event)
     if (
         game.player_white
         and game.player_black
