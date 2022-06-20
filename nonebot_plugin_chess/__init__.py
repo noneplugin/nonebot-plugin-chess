@@ -20,12 +20,15 @@ from nonebot.matcher import Matcher
 from nonebot.exception import ParserExit
 from nonebot.plugin import PluginMetadata
 from nonebot.rule import Rule, ArgumentParser
-from nonebot import on_command, on_shell_command, on_message
 from nonebot.adapters.onebot.v11 import MessageSegment as MS
+from nonebot import on_command, on_shell_command, on_message, require
 from nonebot.adapters.onebot.v11 import MessageEvent, GroupMessageEvent, Message
 
 from .config import Config
 from .game import Game, Player, AiPlayer
+
+require("nonebot_plugin_htmlrender")
+require("nonebot_plugin_datastore")
 
 __plugin_meta__ = PluginMetadata(
     name="国际象棋",
@@ -42,7 +45,7 @@ __plugin_meta__ = PluginMetadata(
         "unique_name": "chess",
         "example": "@小Q 国际象棋人机lv5\ne2e4\n结束下棋",
         "author": "meetwq <meetwq@gmail.com>",
-        "version": "0.2.3",
+        "version": "0.2.4",
     },
 )
 
