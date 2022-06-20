@@ -18,30 +18,33 @@ from nonebot.params import (
 from nonebot.typing import T_State
 from nonebot.matcher import Matcher
 from nonebot.exception import ParserExit
+from nonebot.plugin import PluginMetadata
 from nonebot.rule import Rule, ArgumentParser
 from nonebot import on_command, on_shell_command, on_message
 from nonebot.adapters.onebot.v11 import MessageSegment as MS
 from nonebot.adapters.onebot.v11 import MessageEvent, GroupMessageEvent, Message
 
+from .config import Config
 from .game import Game, Player, AiPlayer
 
-
-__help__plugin_name__ = "chess"
-__des__ = "国际象棋，支持人机和对战"
-__cmd__ = """
-@我 + “国际象棋人机”或“国际象棋对战”开始一局游戏；
-可使用“lv1~8”指定AI等级，如“国际象棋人机lv5”，默认为“lv4”；
-发送 起始坐标格式，如“e2e4”下棋；
-在坐标后加棋子字母表示升变，如“e7e8q”表示升变为后；
-发送“结束下棋”结束当前棋局；发送“显示棋盘”显示当前棋局
-""".strip()
-__short_cmd__ = "国际象棋人机、国际象棋对战"
-__example__ = """
-@小Q 国际象棋人机lv5
-e2e4
-结束下棋
-""".strip()
-__usage__ = f"{__des__}\nUsage:\n{__cmd__}\nExample:\n{__example__}"
+__plugin_meta__ = PluginMetadata(
+    name="国际象棋",
+    description="国际象棋，支持人机和对战",
+    usage=(
+        "@我 + “国际象棋人机”或“国际象棋对战”开始一局游戏；\n"
+        "可使用“lv1~8”指定AI等级，如“国际象棋人机lv5”，默认为“lv4”；\n"
+        "发送 起始坐标格式，如“e2e4”下棋；\n"
+        "在坐标后加棋子字母表示升变，如“e7e8q”表示升变为后；\n"
+        "发送“结束下棋”结束当前棋局；发送“显示棋盘”显示当前棋局"
+    ),
+    config=Config,
+    extra={
+        "unique_name": "chess",
+        "example": "@小Q 国际象棋人机lv5\ne2e4\n结束下棋",
+        "author": "meetwq <meetwq@gmail.com>",
+        "version": "0.2.3",
+    },
+)
 
 
 parser = ArgumentParser("chess", description="国际象棋")
@@ -181,7 +184,7 @@ async def handle_chess(matcher: Matcher, event: MessageEvent, argv: List[str]):
         args = parser.parse_args(argv)
     except ParserExit as e:
         if e.status == 0:
-            await matcher.finish(__usage__)
+            await matcher.finish(__plugin_meta__.usage)
         await matcher.finish()
 
     options = Options(**vars(args))
