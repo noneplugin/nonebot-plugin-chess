@@ -6,7 +6,6 @@ from sqlmodel import select
 from chess import Board, Move
 from datetime import datetime
 from typing import List, Optional
-from sqlalchemy.exc import SQLAlchemyError
 
 from nonebot import get_driver
 from nonebot_plugin_htmlrender import html_to_pic
@@ -115,12 +114,9 @@ class Game:
     async def save_record(self, session_id: str):
         statement = select(GameRecord).where(GameRecord.id == self.id)
         async with create_session() as session:
-            try:
-                record: GameRecord = (await session.exec(statement)).one()  # type: ignore
-            except SQLAlchemyError:
-                record = GameRecord()
-            record.id = self.id
-            record.session_id = session_id
+            record: Optional[GameRecord] = await session.scalar(statement)
+            if not record:
+                record = GameRecord(id=self.id, session_id=session_id)
             if self.player_white:
                 record.player_white_id = str(self.player_white.id)
                 record.player_white_name = self.player_white.name
@@ -151,14 +147,14 @@ class Game:
                 await player.open_engine()
                 return player
 
-        statement = select(GameRecord).where(GameRecord.session_id == session_id)
+        statement = select(GameRecord).where(
+            GameRecord.session_id == session_id, GameRecord.is_game_over == False
+        )
         async with create_session() as session:
             records: List[GameRecord] = (await session.exec(statement)).all()  # type: ignore
         if not records:
             return None
         record = sorted(records, key=lambda x: x.update_time)[-1]
-        if record.is_game_over:
-            return None
         game = cls()
         game.id = record.id
         game.player_white = await load_player(
