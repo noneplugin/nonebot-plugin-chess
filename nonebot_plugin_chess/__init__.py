@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
 from nonebot.params import (
-    State,
     Command,
     CommandArg,
     RawCommand,
@@ -45,7 +44,7 @@ __plugin_meta__ = PluginMetadata(
         "unique_name": "chess",
         "example": "@小Q 国际象棋人机lv5\ne2e4\n结束下棋",
         "author": "meetwq <meetwq@gmail.com>",
-        "version": "0.2.6",
+        "version": "0.2.7",
     },
 )
 
@@ -144,7 +143,7 @@ def match_move(msg: str) -> bool:
     return bool(re.fullmatch(r"^\s*[a-zA-Z]\d[a-zA-Z]\d[a-zA-Z]?\s*$", msg))
 
 
-def get_move_input(state: T_State = State(), msg: str = EventPlainText()) -> bool:
+def get_move_input(state: T_State, msg: str = EventPlainText()) -> bool:
     if match_move(msg):
         state["move"] = msg
         return True
@@ -155,7 +154,7 @@ move_matcher = on_message(Rule(game_running) & get_move_input, block=True, prior
 
 
 @move_matcher.handle()
-async def _(matcher: Matcher, event: MessageEvent, state: T_State = State()):
+async def _(matcher: Matcher, event: MessageEvent, state: T_State):
     move: str = state["move"]
     await handle_chess(matcher, event, [move])
 
