@@ -44,7 +44,7 @@ __plugin_meta__ = PluginMetadata(
         "unique_name": "chess",
         "example": "@小Q 国际象棋人机lv5\ne2e4\n结束下棋",
         "author": "meetwq <meetwq@gmail.com>",
-        "version": "0.2.7",
+        "version": "0.2.8",
     },
 )
 
