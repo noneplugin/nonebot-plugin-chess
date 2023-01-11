@@ -3,14 +3,14 @@ import chess
 import shlex
 import asyncio
 from chess import Termination
+from typing import Dict, List
 from asyncio import TimerHandle
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
 
 from nonebot.params import (
-    Command,
+    EventToMe,
     CommandArg,
-    RawCommand,
+    CommandStart,
     EventPlainText,
     ShellCommandArgv,
 )
@@ -44,7 +44,7 @@ __plugin_meta__ = PluginMetadata(
         "unique_name": "chess",
         "example": "@小Q 国际象棋人机lv5\ne2e4\n结束下棋",
         "author": "meetwq <meetwq@gmail.com>",
-        "version": "0.2.8",
+        "version": "0.2.9",
     },
 )
 
@@ -113,10 +113,8 @@ def game_running(event: MessageEvent) -> bool:
 
 
 # 命令前缀为空则需要to_me，否则不需要
-def smart_to_me(
-    event: MessageEvent, cmd: Tuple[str, ...] = Command(), raw_cmd: str = RawCommand()
-) -> bool:
-    return not raw_cmd.startswith(cmd[0]) or event.is_tome()
+def smart_to_me(command_start: str = CommandStart(), to_me: bool = EventToMe()) -> bool:
+    return bool(command_start) or to_me
 
 
 def is_group(event: MessageEvent) -> bool:
@@ -159,7 +157,13 @@ async def _(matcher: Matcher, event: MessageEvent, state: T_State):
     await handle_chess(matcher, event, [move])
 
 
-async def stop_game(matcher: Matcher, cid: str):
+async def stop_game(cid: str):
+    game = games.pop(cid, None)
+    if game:
+        await game.close_engine()
+
+
+async def stop_game_timeout(matcher: Matcher, cid: str):
     timers.pop(cid, None)
     if games.get(cid, None):
         games.pop(cid)
@@ -172,7 +176,7 @@ def set_timeout(matcher: Matcher, cid: str, timeout: float = 600):
         timer.cancel()
     loop = asyncio.get_running_loop()
     timer = loop.call_later(
-        timeout, lambda: asyncio.ensure_future(stop_game(matcher, cid))
+        timeout, lambda: asyncio.ensure_future(stop_game_timeout(matcher, cid))
     )
     timers[cid] = timer
 
@@ -257,7 +261,7 @@ async def handle_chess(matcher: Matcher, event: MessageEvent, argv: List[str]):
             not game.player_black or game.player_black != player
         ):
             await matcher.finish("只有游戏参与者才能结束游戏")
-        games.pop(cid)
+        await stop_game(cid)
         await matcher.finish("游戏已结束，可发送“重载国际象棋棋局”继续下棋")
 
     if options.show:
@@ -313,8 +317,7 @@ async def handle_chess(matcher: Matcher, event: MessageEvent, argv: List[str]):
         msg = f"{player} 下出 {move}"
 
     if game.board.is_game_over():
-        games.pop(cid)
-        await game.close_engine()
+        await stop_game(cid)
         if result == Termination.CHECKMATE:
             winner = result.winner
             assert winner is not None
@@ -351,8 +354,7 @@ async def handle_chess(matcher: Matcher, event: MessageEvent, argv: List[str]):
 
             msg = f"{ai_player} 下出 {move}"
             if game.board.is_game_over():
-                games.pop(cid)
-                await game.close_engine()
+                await stop_game(cid)
                 if result == Termination.CHECKMATE:
                     winner = result.winner
                     assert winner is not None
