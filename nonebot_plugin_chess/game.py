@@ -61,7 +61,7 @@ class Game:
         self.board = Board()
         self.player_white: Optional[Player] = None
         self.player_black: Optional[Player] = None
-        self.id = uuid.uuid4().hex
+        self.id: str = uuid.uuid4().hex
         self.start_time = datetime.now()
         self.update_time = datetime.now()
 
@@ -164,7 +164,7 @@ class Game:
             return None
         record = sorted(records, key=lambda x: x.update_time)[-1]
         game = cls()
-        game.id = record.id
+        game.id = record.game_id
         game.player_white = await load_player(
             record.player_white_id,
             record.player_white_name,
