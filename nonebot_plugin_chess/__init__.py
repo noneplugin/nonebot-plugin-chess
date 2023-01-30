@@ -182,7 +182,7 @@ def set_timeout(matcher: Matcher, cid: str, timeout: float = 600):
 
 
 def new_player(event: MessageEvent) -> Player:
-    return Player(event.user_id, event.sender.card or event.sender.nickname or "")
+    return Player(str(event.user_id), event.sender.card or event.sender.nickname or "")
 
 
 async def handle_chess(matcher: Matcher, event: MessageEvent, argv: List[str]):
