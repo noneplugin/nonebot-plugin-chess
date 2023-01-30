@@ -112,7 +112,7 @@ class Game:
         )
 
     async def save_record(self, session_id: str):
-        statement = select(GameRecord).where(GameRecord.id == self.id)
+        statement = select(GameRecord).where(GameRecord.game_id == self.id)
         async with create_session() as session:
             record: Optional[GameRecord] = await session.scalar(statement)
             if not record:
@@ -146,10 +146,11 @@ class Game:
             if not id:
                 return None
             if is_ai:
-                level = int(id[-1])
                 if not (1 <= level <= 8):
                     level = 4
                 player = AiPlayer(level)
+                player.id = id
+                player.name = name
                 await player.open_engine()
                 return player
             else:
@@ -182,5 +183,6 @@ class Game:
         start_fen = record.start_fen
         game.board = Board(start_fen)
         for move in record.moves.split(" "):
-            game.board.push_uci(move)
+            if move:
+                game.board.push_uci(move)
         return game
