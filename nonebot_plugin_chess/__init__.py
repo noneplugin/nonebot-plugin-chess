@@ -253,7 +253,7 @@ async def handle_chess(
             message = V12Msg()
             for msg in msgs:
                 if isinstance(msg, bytes):
-                    resp = await bot.upload_file(type="data", name="wordle", data=msg)
+                    resp = await bot.upload_file(type="data", name="chess", data=msg)
                     file_id = resp["file_id"]
                     message.append(V12MsgSeg.image(file_id))
                 else:
