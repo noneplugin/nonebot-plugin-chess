@@ -1,46 +1,44 @@
-import re
-import chess
-import shlex
 import asyncio
-from chess import Termination
+import re
+import shlex
 from asyncio import TimerHandle
 from dataclasses import dataclass
-from typing import Dict, List, Union, Iterable, NoReturn
+from typing import Dict, Iterable, List, NoReturn, Union
 
+import chess
+from chess import Termination
+from nonebot import on_command, on_message, on_shell_command, require
+from nonebot.adapters.onebot.v11 import Bot as V11Bot
+from nonebot.adapters.onebot.v11 import GroupMessageEvent as V11GMEvent
+from nonebot.adapters.onebot.v11 import Message as V11Msg
+from nonebot.adapters.onebot.v11 import MessageEvent as V11MEvent
+from nonebot.adapters.onebot.v11 import MessageSegment as V11MsgSeg
+from nonebot.adapters.onebot.v11 import PrivateMessageEvent as V11PMEvent
+from nonebot.adapters.onebot.v12 import Bot as V12Bot
+from nonebot.adapters.onebot.v12 import ChannelMessageEvent as V12CMEvent
+from nonebot.adapters.onebot.v12 import GroupMessageEvent as V12GMEvent
+from nonebot.adapters.onebot.v12 import Message as V12Msg
+from nonebot.adapters.onebot.v12 import MessageEvent as V12MEvent
+from nonebot.adapters.onebot.v12 import MessageSegment as V12MsgSeg
+from nonebot.adapters.onebot.v12 import PrivateMessageEvent as V12PMEvent
+from nonebot.exception import ParserExit
+from nonebot.matcher import Matcher
 from nonebot.params import (
-    EventToMe,
     CommandArg,
     CommandStart,
     EventPlainText,
+    EventToMe,
     ShellCommandArgv,
 )
-from nonebot.typing import T_State
-from nonebot.matcher import Matcher
-from nonebot.exception import ParserExit
 from nonebot.plugin import PluginMetadata
-from nonebot.rule import Rule, ArgumentParser
-from nonebot import on_command, on_shell_command, on_message, require
-
-from nonebot.adapters.onebot.v11 import Bot as V11Bot
-from nonebot.adapters.onebot.v11 import Message as V11Msg
-from nonebot.adapters.onebot.v11 import MessageSegment as V11MsgSeg
-from nonebot.adapters.onebot.v11 import MessageEvent as V11MEvent
-from nonebot.adapters.onebot.v11 import GroupMessageEvent as V11GMEvent
-from nonebot.adapters.onebot.v11 import PrivateMessageEvent as V11PMEvent
-
-from nonebot.adapters.onebot.v12 import Bot as V12Bot
-from nonebot.adapters.onebot.v12 import Message as V12Msg
-from nonebot.adapters.onebot.v12 import MessageSegment as V12MsgSeg
-from nonebot.adapters.onebot.v12 import MessageEvent as V12MEvent
-from nonebot.adapters.onebot.v12 import GroupMessageEvent as V12GMEvent
-from nonebot.adapters.onebot.v12 import PrivateMessageEvent as V12PMEvent
-from nonebot.adapters.onebot.v12 import ChannelMessageEvent as V12CMEvent
+from nonebot.rule import ArgumentParser, Rule
+from nonebot.typing import T_State
 
 require("nonebot_plugin_htmlrender")
 require("nonebot_plugin_datastore")
 
 from .config import Config
-from .game import Game, Player, AiPlayer
+from .game import AiPlayer, Game, Player
 
 __plugin_meta__ = PluginMetadata(
     name="国际象棋",
@@ -57,7 +55,7 @@ __plugin_meta__ = PluginMetadata(
         "unique_name": "chess",
         "example": "@小Q 国际象棋人机lv5\ne2e4\n结束下棋",
         "author": "meetwq <meetwq@gmail.com>",
-        "version": "0.3.0",
+        "version": "0.3.1",
     },
 )
 

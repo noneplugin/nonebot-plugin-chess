@@ -1,15 +1,15 @@
 import uuid
-import chess
-import chess.svg
-import chess.engine
-from sqlmodel import select
-from chess import Board, Move
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
+import chess
+import chess.engine
+import chess.svg
+from chess import Board, Move
 from nonebot import get_driver
-from nonebot_plugin_htmlrender import html_to_pic
 from nonebot_plugin_datastore import create_session
+from nonebot_plugin_htmlrender import html_to_pic
+from sqlalchemy import select
 
 from .config import Config
 from .model import GameRecord
@@ -160,7 +160,7 @@ class Game:
             GameRecord.session_id == session_id, GameRecord.is_game_over == False
         )
         async with create_session() as session:
-            records: List[GameRecord] = (await session.exec(statement)).all()  # type: ignore
+            records = (await session.scalars(statement)).all()
         if not records:
             return None
         record = sorted(records, key=lambda x: x.update_time)[-1]
