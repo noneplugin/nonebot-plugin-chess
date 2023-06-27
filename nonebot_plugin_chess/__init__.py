@@ -8,19 +8,7 @@ from typing import Dict, Iterable, List, NoReturn, Union
 import chess
 from chess import Termination
 from nonebot import on_command, on_message, on_shell_command, require
-from nonebot.adapters.onebot.v11 import Bot as V11Bot
-from nonebot.adapters.onebot.v11 import GroupMessageEvent as V11GMEvent
-from nonebot.adapters.onebot.v11 import Message as V11Msg
-from nonebot.adapters.onebot.v11 import MessageEvent as V11MEvent
-from nonebot.adapters.onebot.v11 import MessageSegment as V11MsgSeg
-from nonebot.adapters.onebot.v11 import PrivateMessageEvent as V11PMEvent
-from nonebot.adapters.onebot.v12 import Bot as V12Bot
-from nonebot.adapters.onebot.v12 import ChannelMessageEvent as V12CMEvent
-from nonebot.adapters.onebot.v12 import GroupMessageEvent as V12GMEvent
-from nonebot.adapters.onebot.v12 import Message as V12Msg
-from nonebot.adapters.onebot.v12 import MessageEvent as V12MEvent
-from nonebot.adapters.onebot.v12 import MessageSegment as V12MsgSeg
-from nonebot.adapters.onebot.v12 import PrivateMessageEvent as V12PMEvent
+from nonebot.adapters import Bot, Event, Message
 from nonebot.exception import ParserExit
 from nonebot.matcher import Matcher
 from nonebot.params import (
@@ -34,8 +22,27 @@ from nonebot.plugin import PluginMetadata
 from nonebot.rule import ArgumentParser, Rule
 from nonebot.typing import T_State
 
-require("nonebot_plugin_htmlrender")
+require("nonebot_plugin_saa")
+require("nonebot_plugin_session")
+require("nonebot_plugin_userinfo")
 require("nonebot_plugin_datastore")
+
+from nonebot_plugin_saa import Image, MessageFactory
+from nonebot_plugin_saa import __plugin_meta__ as saa_plugin_meta
+from nonebot_plugin_session import SessionIdType, SessionLevel
+from nonebot_plugin_session import __plugin_meta__ as session_plugin_meta
+from nonebot_plugin_session import extract_session
+from nonebot_plugin_userinfo import __plugin_meta__ as userinfo_plugin_meta
+from nonebot_plugin_userinfo import get_user_info
+
+assert saa_plugin_meta.supported_adapters
+assert session_plugin_meta.supported_adapters
+assert userinfo_plugin_meta.supported_adapters
+supported_adapters = (
+    saa_plugin_meta.supported_adapters
+    & session_plugin_meta.supported_adapters
+    & userinfo_plugin_meta.supported_adapters
+)
 
 from .config import Config
 from .game import AiPlayer, Game, Player
@@ -50,12 +57,15 @@ __plugin_meta__ = PluginMetadata(
         "在坐标后加棋子字母表示升变，如“e7e8q”表示升变为后；\n"
         "发送“结束下棋”结束当前棋局；发送“显示棋盘”显示当前棋局"
     ),
+    type="application",
+    homepage="https://github.com/noneplugin/nonebot-plugin-chess",
     config=Config,
+    supported_adapters=supported_adapters,
     extra={
         "unique_name": "chess",
         "example": "@小Q 国际象棋人机lv5\ne2e4\n结束下棋",
         "author": "meetwq <meetwq@gmail.com>",
-        "version": "0.3.1",
+        "version": "0.4.0",
     },
 )
 
@@ -93,28 +103,16 @@ chess_matcher = on_shell_command("chess", parser=parser, block=True, priority=13
 
 @chess_matcher.handle()
 async def _(
-    bot: Union[V11Bot, V12Bot],
+    bot: Bot,
     matcher: Matcher,
-    event: Union[V11MEvent, V12MEvent],
+    event: Event,
     argv: List[str] = ShellCommandArgv(),
 ):
     await handle_chess(bot, matcher, event, argv)
 
 
-def get_cid(bot: Union[V11Bot, V12Bot], event: Union[V11MEvent, V12MEvent]):
-    if isinstance(event, V11MEvent):
-        cid = f"{bot.self_id}_{event.sub_type}_"
-    else:
-        cid = f"{bot.self_id}_{event.detail_type}_"
-
-    if isinstance(event, V11GMEvent) or isinstance(event, V12GMEvent):
-        cid += str(event.group_id)
-    elif isinstance(event, V12CMEvent):
-        cid += f"{event.guild_id}_{event.channel_id}"
-    else:
-        cid += str(event.user_id)
-
-    return cid
+def get_cid(bot: Bot, event: Event):
+    return extract_session(bot, event).get_id(SessionIdType.GROUP)
 
 
 def shortcut(cmd: str, argv: List[str] = [], **kwargs):
@@ -122,10 +120,10 @@ def shortcut(cmd: str, argv: List[str] = [], **kwargs):
 
     @command.handle()
     async def _(
-        bot: Union[V11Bot, V12Bot],
+        bot: Bot,
         matcher: Matcher,
-        event: Union[V11MEvent, V12MEvent],
-        msg: Union[V11Msg, V12Msg] = CommandArg(),
+        event: Event,
+        msg: Message = CommandArg(),
     ):
         try:
             args = shlex.split(msg.extract_plain_text().strip())
@@ -134,9 +132,7 @@ def shortcut(cmd: str, argv: List[str] = [], **kwargs):
         await handle_chess(bot, matcher, event, argv + args)
 
 
-def game_running(
-    bot: Union[V11Bot, V12Bot], event: Union[V11MEvent, V12MEvent]
-) -> bool:
+def game_running(bot: Bot, event: Event) -> bool:
     cid = get_cid(bot, event)
     return bool(games.get(cid, None))
 
@@ -146,8 +142,11 @@ def smart_to_me(command_start: str = CommandStart(), to_me: bool = EventToMe()) 
     return bool(command_start) or to_me
 
 
-def not_private(event: Union[V11MEvent, V12MEvent]) -> bool:
-    return not (isinstance(event, V11PMEvent) or isinstance(event, V12PMEvent))
+def not_private(bot: Bot, event: Event) -> bool:
+    return extract_session(bot, event).level not in (
+        SessionLevel.LEVEL0,
+        SessionLevel.LEVEL1,
+    )
 
 
 shortcut(
@@ -184,9 +183,9 @@ move_matcher = on_message(Rule(game_running) & get_move_input, block=True, prior
 
 @move_matcher.handle()
 async def _(
-    bot: Union[V11Bot, V12Bot],
+    bot: Bot,
     matcher: Matcher,
-    event: Union[V11MEvent, V12MEvent],
+    event: Event,
     state: T_State,
 ):
     move: str = state["move"]
@@ -218,20 +217,16 @@ def set_timeout(matcher: Matcher, cid: str, timeout: float = 600):
 
 
 async def handle_chess(
-    bot: Union[V11Bot, V12Bot],
+    bot: Bot,
     matcher: Matcher,
-    event: Union[V11MEvent, V12MEvent],
+    event: Event,
     argv: List[str],
 ):
-    async def new_player(event: Union[V11MEvent, V12MEvent]) -> Player:
+    async def new_player(event: Event) -> Player:
         user_id = event.get_user_id()
         user_name = ""
-        if isinstance(event, V11MEvent):
-            user_name = event.sender.card or event.sender.nickname or ""
-        else:
-            assert isinstance(bot, V12Bot)
-            resp = await bot.get_user_info(user_id=user_id)
-            user_name = resp["user_displayname"] or resp["user_name"]
+        if user_info := await get_user_info(bot, event, user_id=user_id):
+            user_name = user_info.user_name
         return Player(user_id, user_name)
 
     async def send(msgs: Union[str, Iterable[Union[str, bytes]]] = "") -> NoReturn:
@@ -240,23 +235,14 @@ async def handle_chess(
         if isinstance(msgs, str):
             await matcher.finish(msgs)
 
-        if isinstance(bot, V11Bot):
-            message = V11Msg()
-            for msg in msgs:
-                if isinstance(msg, bytes):
-                    message.append(V11MsgSeg.image(msg))
-                else:
-                    message.append(msg)
-        else:
-            message = V12Msg()
-            for msg in msgs:
-                if isinstance(msg, bytes):
-                    resp = await bot.upload_file(type="data", name="chess", data=msg)
-                    file_id = resp["file_id"]
-                    message.append(V12MsgSeg.image(file_id))
-                else:
-                    message.append(msg)
-        await matcher.finish(message)
+        msg_builder = MessageFactory([])
+        for msg in msgs:
+            if isinstance(msg, bytes):
+                msg_builder.append(Image(msg))
+            else:
+                msg_builder.append(msg)
+        await msg_builder.send()
+        await matcher.finish()
 
     try:
         args = parser.parse_args(argv)
@@ -292,7 +278,7 @@ async def handle_chess(
                         f"游戏发起时间：{game.start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
                         f"白方：{game.player_white}\n"
                         f"黑方：{game.player_black}\n"
-                        f"下一手轮到：{game.player_next}"
+                        f"下一手轮到：{game.player_next}\n"
                     ),
                     await game.draw(),
                 )
@@ -327,7 +313,7 @@ async def handle_chess(
         games[cid] = game
         set_timeout(matcher, cid)
         await game.save_record(cid)
-        await send((msg, await game.draw()))
+        await send((msg + "\n", await game.draw()))
 
     game = games[cid]
     set_timeout(matcher, cid)
@@ -365,7 +351,7 @@ async def handle_chess(
             game.board.pop()
             game.board.pop()
         await game.save_record(cid)
-        await send((f"{player} 进行了悔棋", await game.draw()))
+        await send((f"{player} 进行了悔棋\n", await game.draw()))
 
     if (game.player_next and game.player_next != player) or (
         game.player_last and game.player_last == player
@@ -413,7 +399,7 @@ async def handle_chess(
     else:
         if game.player_next and game.is_battle:
             msg += f"，下一手轮到 {game.player_next}"
-    msgs.append(msg)
+    msgs.append(msg + "\n")
     msgs.append(await game.draw())
 
     if not game.is_battle:
@@ -429,7 +415,7 @@ async def handle_chess(
             except:
                 await send("国际象棋引擎出错，请结束游戏或稍后再试")
 
-            msg = f"{ai_player} 下出 {move}"
+            msg = f"\n{ai_player} 下出 {move}"
             if game.board.is_game_over():
                 await stop_game(cid)
                 if result == Termination.CHECKMATE:
@@ -443,7 +429,7 @@ async def handle_chess(
                     msg += f"，本局游戏平局"
                 else:
                     msg += f"，游戏结束"
-            msgs.append(msg)
+            msgs.append(msg + "\n")
             msgs.append((await game.draw()))
 
     await game.save_record(cid)
