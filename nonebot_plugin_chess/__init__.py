@@ -26,6 +26,7 @@ require("nonebot_plugin_saa")
 require("nonebot_plugin_session")
 require("nonebot_plugin_userinfo")
 require("nonebot_plugin_datastore")
+require("nonebot_plugin_htmlrender")
 
 from nonebot_plugin_saa import Image, MessageFactory
 from nonebot_plugin_saa import __plugin_meta__ as saa_plugin_meta
@@ -65,7 +66,7 @@ __plugin_meta__ = PluginMetadata(
         "unique_name": "chess",
         "example": "@小Q 国际象棋人机lv5\ne2e4\n结束下棋",
         "author": "meetwq <meetwq@gmail.com>",
-        "version": "0.4.0",
+        "version": "0.4.1",
     },
 )
 
