@@ -7,8 +7,8 @@ import chess.engine
 import chess.svg
 from chess import Board, Move
 from nonebot import get_driver
-from nonebot_plugin_datastore import create_session
 from nonebot_plugin_htmlrender import html_to_pic
+from nonebot_plugin_orm import get_session
 from sqlalchemy import select
 
 from .config import Config
@@ -113,10 +113,11 @@ class Game:
 
     async def save_record(self, session_id: str):
         statement = select(GameRecord).where(GameRecord.game_id == self.id)
-        async with create_session() as session:
-            record: Optional[GameRecord] = await session.scalar(statement)
+        async with get_session() as session:
+            record = await session.scalar(statement)
             if not record:
                 record = GameRecord(game_id=self.id, session_id=session_id)
+
             if self.player_white:
                 record.player_white_id = str(self.player_white.id)
                 record.player_white_name = self.player_white.name
@@ -135,6 +136,7 @@ class Game:
             record.start_fen = self.board.starting_fen
             record.moves = " ".join([str(move) for move in self.board.move_stack])
             record.is_game_over = self.board.is_game_over()
+
             session.add(record)
             await session.commit()
 
@@ -156,14 +158,19 @@ class Game:
             else:
                 return Player(id, name)
 
-        statement = select(GameRecord).where(
-            GameRecord.session_id == session_id, GameRecord.is_game_over == False
+        statement = (
+            select(GameRecord)
+            .where(
+                GameRecord.session_id == session_id,
+                GameRecord.is_game_over == False,
+            )
+            .order_by(GameRecord.update_time.desc())
         )
-        async with create_session() as session:
-            records = (await session.scalars(statement)).all()
-        if not records:
-            return None
-        record = sorted(records, key=lambda x: x.update_time)[-1]
+        async with get_session() as session:
+            record = await session.scalar(statement)
+            if not record:
+                return None
+
         game = cls()
         game.id = record.game_id
         game.player_white = await load_player(
