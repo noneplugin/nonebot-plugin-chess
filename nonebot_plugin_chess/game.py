@@ -6,15 +6,12 @@ import chess
 import chess.engine
 import chess.svg
 from chess import Board, Move
-from nonebot import get_driver
 from nonebot_plugin_htmlrender import html_to_pic
 from nonebot_plugin_orm import get_session
 from sqlalchemy import select
 
-from .config import Config
+from .config import chess_config
 from .model import GameRecord
-
-chess_config = Config.parse_obj(get_driver().config.dict())
 
 
 class Player:
@@ -162,7 +159,7 @@ class Game:
             select(GameRecord)
             .where(
                 GameRecord.session_id == session_id,
-                GameRecord.is_game_over == False,
+                GameRecord.is_game_over == False,  # noqa
             )
             .order_by(GameRecord.update_time.desc())
         )
