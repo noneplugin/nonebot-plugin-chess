@@ -30,7 +30,6 @@ from nonebot_plugin_alconna import (
 )
 from nonebot_plugin_uninfo import Uninfo
 
-from . import migrations
 from .config import Config
 from .game import AiPlayer, Game, Player
 
@@ -50,10 +49,6 @@ __plugin_meta__ = PluginMetadata(
     supported_adapters=inherit_supported_adapters(
         "nonebot_plugin_alconna", "nonebot_plugin_uninfo"
     ),
-    extra={
-        "example": "@小Q 国际象棋人机lv5\ne2e4\n结束下棋",
-        "orm_version_location": migrations,
-    },
 )
 
 
